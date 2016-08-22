@@ -59,6 +59,7 @@ type HTTPProbe struct {
 	FailIfMatchesRegexp    []string          `yaml:"fail_if_matches_regexp"`
 	FailIfNotMatchesRegexp []string          `yaml:"fail_if_not_matches_regexp"`
 	TLSConfig              config.TLSConfig  `yaml:"tls_config"`
+	Proxy			string           `yaml:"proxy"`
 }
 
 type QueryResponse struct {

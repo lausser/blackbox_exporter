@@ -19,10 +19,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/prometheus/common/log"
+	"golang.org/x/net/proxy"
 )
 
 func matchRegularExpressions(reader io.Reader, config HTTPProbe) bool {
@@ -67,9 +69,26 @@ func probeHTTP(target string, w http.ResponseWriter, module Module) (success boo
 		log.Errorf("Error generating TLS config: %s", err)
 		return false
 	}
-	client.Transport = &http.Transport{
+
+	httpTransport := &http.Transport{
 		TLSClientConfig: tlsconfig,
 	}
+	proxyUrl, proxyErr := url.Parse(config.Proxy)
+	if proxyErr != nil && config.Proxy != "" {
+		log.Errorf("can't parse proxy url: %s", proxyErr)
+		return false
+	}
+	if strings.HasPrefix(config.Proxy, "socks://") {
+		dialer, err := proxy.SOCKS5("tcp", proxyUrl.Host, nil, proxy.Direct)
+		if err != nil {
+			log.Errorf("can't connect to the proxy: %s", err)
+			return false
+		}
+		httpTransport.Dial = dialer.Dial
+	} else if strings.HasPrefix(config.Proxy, "http://") {
+		httpTransport.Proxy = http.ProxyURL(proxyUrl)
+	}
+	client.Transport = httpTransport
 
 	client.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		redirects = len(via)
